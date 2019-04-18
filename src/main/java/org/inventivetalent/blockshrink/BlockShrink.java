@@ -381,7 +381,7 @@ public class BlockShrink extends JavaPlugin implements Listener {
 			stand.setRightArmPose(new EulerAngle(Math.toRadians(-14.05), Math.toRadians(-46.0), 0.0));
 		}
 		if (size == BlockSize.HAND_SMALL) {
-			stand.setRightArmPose(new EulerAngle(Math.toRadians(-34.0), 0.0, 0.0));
+			stand.setRightArmPose(new EulerAngle(Math.toRadians(-16.0), 0.0, 0.0));
 		}
 	}
 
