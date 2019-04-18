@@ -1,11 +1,11 @@
 package org.inventivetalent.blockshrink;
 
 import com.sk89q.worldedit.EditSession;
-import com.sk89q.worldedit.MaxChangedBlocksException;
-import com.sk89q.worldedit.Vector;
-import com.sk89q.worldedit.blocks.BaseBlock;
+import com.sk89q.worldedit.LocalSession;
+import com.sk89q.worldedit.bukkit.BukkitAdapter;
 import com.sk89q.worldedit.bukkit.WorldEditPlugin;
-import com.sk89q.worldedit.bukkit.selections.Selection;
+import com.sk89q.worldedit.math.BlockVector3;
+import com.sk89q.worldedit.regions.Region;
 import org.bstats.bukkit.Metrics;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -32,14 +32,13 @@ import java.util.List;
 
 public class BlockShrink extends JavaPlugin implements Listener {
 
-	public static BlockShrink		instance;
-	public static String			prefix	= "§e[BlockShrink]§r ";
-	public static WorldEditPlugin	worldEdit;
+	public static BlockShrink     instance;
+	public static String          prefix = "§e[BlockShrink]§r ";
+	public static WorldEditPlugin worldEdit;
 
 	@Override
 	public void onEnable() {
 		instance = this;
-		
 
 		if (!Bukkit.getPluginManager().isPluginEnabled("WorldEdit") || (worldEdit = (WorldEditPlugin) Bukkit.getPluginManager().getPlugin("WorldEdit")) == null) {
 			this.getLogger().severe("****************************************");
@@ -90,28 +89,34 @@ public class BlockShrink extends JavaPlugin implements Listener {
 					return false;
 				}
 				if (args.length == 2) {
-					Selection sel = worldEdit.getSelection(p);
-					if (sel == null) {
-						sender.sendMessage(prefix + "§cPlease make a WorldEdit selection first.");
-						return false;
-					}
-					BlockSize size = null;
+					LocalSession session = worldEdit.getSession(p);
 					try {
-						size = BlockSize.valueOf(args[1].toUpperCase());
+						Region sel = session.getSelection(session.getSelectionWorld());
+						if (sel == null) {
+							sender.sendMessage(prefix + "§cPlease make a WorldEdit selection first.");
+							return false;
+						}
+						BlockSize size = null;
+						try {
+							size = BlockSize.valueOf(args[1].toUpperCase());
+						} catch (Exception e) {
+						}
+						if (size == null) {
+							sender.sendMessage(prefix + "§cInvalid size");
+							return false;
+						}
+						sender.sendMessage(prefix + "§aShrinking region...");
+						boolean b = this.shrinkRegion(p, sel.getMinimumPoint(), sel.getMaximumPoint(), size);
+						if (b) {
+							sender.sendMessage(prefix + "§aDone!");
+						} else {
+							sender.sendMessage(prefix + "§cFailed.");
+						}
+						return true;
 					} catch (Exception e) {
+						e.printStackTrace();
 					}
-					if (size == null) {
-						sender.sendMessage(prefix + "§cInvalid size");
-						return false;
-					}
-					sender.sendMessage(prefix + "§aShrinking region...");
-					boolean b = this.shrinkRegion(p, sel.getMinimumPoint(), sel.getMaximumPoint(), size);
-					if (b) {
-						sender.sendMessage(prefix + "§aDone!");
-					} else {
-						sender.sendMessage(prefix + "§cFailed.");
-					}
-					return true;
+					return false;
 				}
 			}
 			if ("clear".equalsIgnoreCase(args[0])) {
@@ -119,21 +124,31 @@ public class BlockShrink extends JavaPlugin implements Listener {
 					sender.sendMessage(prefix + "§cNo permission");
 					return false;
 				}
-				final Selection sel = worldEdit.getSelection(p);
-				if (sel == null) {
-					sender.sendMessage(prefix + "§cPlease make a WorldEdit selection first.");
-					return false;
-				}
-				new BukkitRunnable() {
-
-					@Override
-					public void run() {
-						sender.sendMessage(prefix + "§aRemoving entities....");
-						BlockShrink.this.removeBlocksInSelection(sel, p.getWorld());
-						sender.sendMessage(prefix + "§aDone!");
+				LocalSession session = worldEdit.getSession(p);
+				try {
+					Region sel = session.getSelection(session.getSelectionWorld());
+					if (sel == null) {
+						sender.sendMessage(prefix + "§cPlease make a WorldEdit selection first.");
+						return false;
 					}
-				}.runTask(instance);
-				return true;
+					if (sel == null) {
+						sender.sendMessage(prefix + "§cPlease make a WorldEdit selection first.");
+						return false;
+					}
+					new BukkitRunnable() {
+
+						@Override
+						public void run() {
+							sender.sendMessage(prefix + "§aRemoving entities....");
+							BlockShrink.this.removeBlocksInSelection(sel, p.getWorld());
+							sender.sendMessage(prefix + "§aDone!");
+						}
+					}.runTask(instance);
+					return true;
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+				return false;
 			}
 			if ("move".equalsIgnoreCase(args[0])) {
 				if (!sender.hasPermission("blockshrink.command.move")) {
@@ -144,31 +159,37 @@ public class BlockShrink extends JavaPlugin implements Listener {
 					sender.sendMessage(prefix + "§c/bs move <x> <y> <z>");
 					return false;
 				}
-				final Selection sel = worldEdit.getSelection(p);
-				if (sel == null) {
-					sender.sendMessage(prefix + "§cPlease make a WorldEdit selection first.");
-					return false;
-				}
+				LocalSession session = worldEdit.getSession(p);
 				try {
-					final double x = Double.parseDouble(args[1]);
-					final double y = Double.parseDouble(args[2]);
-					final double z = Double.parseDouble(args[3]);
+					Region sel = session.getSelection(session.getSelectionWorld());
+					if (sel == null) {
+						sender.sendMessage(prefix + "§cPlease make a WorldEdit selection first.");
+						return false;
+					}
+					try {
+						final double x = Double.parseDouble(args[1]);
+						final double y = Double.parseDouble(args[2]);
+						final double z = Double.parseDouble(args[3]);
 
-					new BukkitRunnable() {
+						new BukkitRunnable() {
 
-						@Override
-						public void run() {
-							sender.sendMessage(prefix + "§aShifting blocks by " + x + "," + y + "," + z + "...");
-							for (Entity ent : BlockShrink.this.getBlocksInSelection(sel, p.getWorld())) {
-								ent.teleport(ent.getLocation().add(x, y, z));
+							@Override
+							public void run() {
+								sender.sendMessage(prefix + "§aShifting blocks by " + x + "," + y + "," + z + "...");
+								for (Entity ent : BlockShrink.this.getBlocksInSelection(sel, p.getWorld())) {
+									ent.teleport(ent.getLocation().add(x, y, z));
+								}
+								sender.sendMessage(prefix + "§aDone!");
 							}
-							sender.sendMessage(prefix + "§aDone!");
-						}
-					}.runTask(instance);
-				} catch (NumberFormatException e) {
-					sender.sendMessage(prefix + "§cInvalid coordinate");
-					return false;
+						}.runTask(instance);
+					} catch (NumberFormatException e) {
+						sender.sendMessage(prefix + "§cInvalid coordinate");
+						return false;
+					}
+				} catch (Exception e) {
+					e.printStackTrace();
 				}
+				return false;
 
 			}
 		}
@@ -217,18 +238,18 @@ public class BlockShrink extends JavaPlugin implements Listener {
 		}
 	}
 
-	boolean removeBlocksInSelection(Selection sel, World world) {
+	boolean removeBlocksInSelection(Region sel, World world) {
 		for (Entity ent : this.getBlocksInSelection(sel, world)) {
 			ent.remove();
 		}
 		return true;
 	}
 
-	Collection<ArmorStand> getBlocksInSelection(Selection sel, World world) {
+	Collection<ArmorStand> getBlocksInSelection(Region sel, World world) {
 		final Collection<ArmorStand> entities = world.getEntitiesByClass(ArmorStand.class);
 		final Collection<ArmorStand> list = new ArrayList<>();
 		for (Entity ent : entities) {
-			if (sel.contains(ent.getLocation())) {
+			if (sel.contains(BlockVector3.at(ent.getLocation().getX(), ent.getLocation().getY(), ent.getLocation().getZ()))) {
 				if (ent instanceof ArmorStand) {
 					ArmorStand stand = (ArmorStand) ent;
 					if ("ShrunkBlock".equals(stand.getCustomName())) {
@@ -240,13 +261,12 @@ public class BlockShrink extends JavaPlugin implements Listener {
 		return list;
 	}
 
-	public boolean shrinkRegion(Player p, Location min, Location max, BlockSize size) {
-		if (min == null || max == null || size == null) return false;
-		if (!min.getWorld().equals(max.getWorld())) return false;
+	public boolean shrinkRegion(Player p, BlockVector3 min, BlockVector3 max, BlockSize size) {
+		if (min == null || max == null || size == null) { return false; }
 
 		EditSession session = worldEdit.createEditSession(p);
 
-		World world = min.getWorld();
+		World world = p.getWorld();
 		int minX = min.getBlockX();
 		int minY = min.getBlockY();
 		int minZ = min.getBlockZ();
@@ -321,8 +341,8 @@ public class BlockShrink extends JavaPlugin implements Listener {
 					this.spawnArmorStand(new Location(world, x, y, z), new Location(world, xPos, yPos, zPos), block.getType(), size);
 
 					try {
-						session.setBlock(new Vector(x, y, z), new BaseBlock(0));
-					} catch (MaxChangedBlocksException e) {
+						session.setBlock(BlockVector3.at(x, y, z), BukkitAdapter.asBlockState(new ItemStack(Material.AIR)));
+					} catch (Exception e) {
 						e.printStackTrace();
 					}
 
