@@ -326,7 +326,7 @@ public class BlockShrink extends JavaPlugin implements Listener {
 						e.printStackTrace();
 					}
 
-//					block.setType(Material.AIR);
+					block.setType(Material.AIR);
 					replacedBlocks++;
 				}
 			}
