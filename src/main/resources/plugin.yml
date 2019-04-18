@@ -1,0 +1,10 @@
+name: BlockShrink
+main: org.inventivetalent.blockshrink.BlockShrink
+author: inventivetalent
+version: ${project.version}
+
+softdepend: [WorldEdit]
+
+commands:
+  blockshrink:
+    aliases: [bs, bshrink, blocksh]
